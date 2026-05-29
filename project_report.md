@@ -6,168 +6,292 @@
 
 ---
 
-## 1. Abstract
-In the contemporary cybersecurity paradigm, real-time threat telemetry and centralized log analytics are foundational to maintaining an assertive defensive posture. This capstone project details the architectural design, localized deployment, and empirical validation of a standalone Security Information and Event Management (SIEM) cluster engineered via the open-source **Wazuh** ecosystem on a consolidated **Kali Linux** virtual asset.
+# 1. Abstract
 
-To systematically evaluate the detection, parsing, and analytical capabilities of the engine, a multi-stage adversary simulation was executed along the early phases of the Cyber Kill Chain. Initial reconnaissance was conducted utilizing `Nmap` for network topology mapping and port discovery, immediately followed by an aggressive, multi-threaded credential-stuffing and online brute-force campaign targeted at the secure shell (`SSH`) daemon via `THC-Hydra`.
+In the contemporary cybersecurity landscape, real-time threat monitoring and centralized log analytics are essential for maintaining a strong defensive posture. This project presents the design, deployment, and validation of a standalone Security Information and Event Management (SIEM) environment using the open-source **Wazuh** platform on a unified **Kali Linux** virtual machine.
 
-The underlying `wazuh-analysisd` engine successfully intercepted raw system log mutations within `/var/log/auth.log`, map-matched the entries through structural XML regex decoders, and generated deterministic, high-severity operational alerts (**Rule IDs 5710 and 5712**). These events were aggregated, correlated, and visualized across multi-dimensional time-series data panels on a customized dashboard. The empirical findings from this research validate that monolithic, localized SIEM deployments provide high-fidelity monitoring, near-zero telemetry lag, and an optimal, low-overhead blueprint for endpoint detection, event correlation, and automated threat tracking.
+To evaluate the effectiveness of the SIEM engine, a multi-stage attack simulation was performed following the early phases of the Cyber Kill Chain. Initial reconnaissance was conducted using `Nmap` for local network and port discovery, followed by an automated SSH brute-force attack using `THC-Hydra`.
 
----
+The `wazuh-analysisd` engine successfully detected and processed authentication log events from `/var/log/auth.log`, mapped them through Wazuh decoders and rules, and generated high-severity alerts (**Rule IDs 5710 and 5712**). These alerts were indexed and visualized in real time through the Wazuh Dashboard.
 
-## 2. Introduction
-Modern enterprise infrastructure routinely faces a dense volume of sophisticated cyber threats ranging from automated vulnerability hunting to persistent distributed brute-force attacks. Traditional security measures, such as perimeter firewalls or decentralized logging systems, fail to track internal asset mutation once a perimeter is bypassed. Consequently, centralized log parsing, ingestion, and real-time behavioral correlation through SIEM environments have transitioned from optional frameworks to core operational requirements within Modern Security Operations Centers (SOCs).
-
-### 2.1 Problem Statement
-While distributed, enterprise-grade SIEM environments (e.g., commercial deployments of Splunk or massive multi-node ELK clusters) provide extensive horizontal scaling, they demand substantial infrastructural resource overhead, introduce restrictive licensing fees, and require intricate network-level configuration barriers. For small-scale enterprises, isolated critical endpoints, and lightweight lab environments, such deployments are prohibitive. 
-
-There is an evident structural need for a compact, optimized, high-efficiency Mini-SIEM solution capable of co-existing within a unified endpoint to monitor system event telemetry locally, parse unstructured log strings into standardized telemetry streams, and generate immediate visual alert clusters during an active host breach.
-
-### 2.2 Project Objectives
-To address the issues highlighted above, this project achieves the following milestone objectives:
-* **Architectural Deployment:** Install and maintain a hardened, monolithic instantiation of the Wazuh Manager, Indexer, and Dashboard stacks on a Unix-based target.
-* **Telemetry Ingestion Engineering:** Configure underlying local collection directives to actively stream authentication log deltas (`auth.log`) to the log analysis daemon.
-* **Multi-Stage Adversarial Simulation:** Model real-world threat actors by implementing automated port discovery scanning (Reconnaissance Phase) and parallelized credential brute-forcing (Exploitation Phase).
-* **Validation and Telemetry Correlation:** Verify the accurate processing of security events via rule-matching triggers, visualizing real-time threat spikes on analytical dashboard timelines.
+The project demonstrates that a localized, lightweight SIEM deployment can provide effective real-time monitoring, event correlation, and threat detection with minimal infrastructure overhead.
 
 ---
 
-## 3. System Architecture & Technical Stack
-The structural engineering of this project leverages a monolithic, unified deployment strategy. Both the defensive security monitoring plane and the simulated threat-generation vectors operate on a single host. This configuration maximizes throughput and matches typical localized host-defense systems or endpoint evaluation paradigms.
+# 2. Introduction
 
-### 3.1 Architectural Data Flow Diagram
+Modern systems continuously face cyber threats such as automated reconnaissance, unauthorized access attempts, and brute-force attacks. Traditional standalone logging methods and perimeter-based defenses often fail to provide centralized visibility into security events occurring inside a host system.
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            KALI LINUX HOST LAYER                            │
-│                                                                             │
-│  ┌───────────────────────┐                  ┌────────────────────────────┐  │
-│  │   OFFENSIVE VECTORS   │                  │      DEFENSIVE TARGET      │  │
-│  │                       │                  │                            │  │
-│  │  [1] Nmap Port Scan   ├─────────────────►│   Local Network Sockets    │  │
-│  │  [2] Hydra SSH Attack │                  │   & OpenSSH (Port 22)      │  │
-│  └───────────────────────┘                  └─────────────┬──────────────┘  │
-│                                                           │                 │
-│                                                           ▼ (Mutates)       │
-│                                                   /var/log/auth.log         │
-│                                                           │                 │
-│  ┌────────────────────────────────────────────────────────┼────────────────┐│
-│  │ WAZUH CORE ENGINE LAYER                                ▼                ││
-│  │                                                ┌────────────────┐       ││
-│  │                                                │ Log Ingestion  │       ││
-│  │                                                │ (wazuh-modulesd)       ││
-│  │                                                └───────┬────────┘       ││
-│  │                                                        │                ││
-│  │                                                        ▼ (Raw Stream)   ││
-│  │ ┌───────────────────┐                          ┌────────────────┐       ││
-│  │ │ Wazuh Dashboard   │◄─────────────────────────┤wazuh-analysisd │       ││
-│  │ │ (Visualization UI)│  (Alert Event Indexing)  │(Rules Engine)  │       ││
-│  │ └─────────▲─────────┘                          └────────────────┘       ││
-│  └───────────┼─────────────────────────────────────────────────────────────┘│
-│              │ (Queries via HTTPS)                                          │
-│      ┌───────┴──────────────┐                                               │
-│      │ Firefox Web Browser  │                                               │
-│      └──────────────────────┘                                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+Security Information and Event Management (SIEM) solutions address this limitation by collecting, analyzing, correlating, and visualizing security telemetry in real time.
 
-### 3.2 Comprehensive Component Breakdown
+## 2.1 Problem Statement
 
-| Component | Technology | Functional Description |
-| :--- | :--- | :--- |
-| **Host Operating System** | Kali Linux (x86_64 Architecture) | Deployed within a hardware-isolated VirtualBox hypervisor instance with allocated resource optimization. |
-| **Wazuh Core SIEM Engine** | `wazuh-manager` | Executed as a system background daemon. Houses log monitoring agents, XML pattern decoders, and the rule-matching evaluation block (`wazuh-analysisd`). |
-| **Wazuh Analytics Suite** | Wazuh Dashboard | Integrated OpenSearch-derived graphical visualization layer executing an internal web node to parse index mappings into graphs and timelines. |
-| **Target Security Service** | `ssh.service` (OpenSSH) | Standard SSH server exposed locally on TCP Port 22, configured to record authorization milestones into the Linux syslog system. |
-| **Network Mapping Engine** | Nmap v7.9x | Open-source network exploration utility used to synthesize rapid connection handshakes against local interfaces. |
-| **Parallel Login Auditor** | THC-Hydra v9.6 | Multi-threaded network login crack engine utilized to execute high-velocity parallel authentication sequences using credential matrices. |
+Enterprise-grade SIEM platforms often require large-scale infrastructure, extensive configuration, and expensive licensing models. These requirements make them impractical for:
 
-## 4. Experimental Methodology & Offensive Simulation
-The evaluation of the security engineering stack was broken down into two distinct operational execution tracks, matching the lifecycle of standard cyber attacks.
+* Small organizations
+* Educational labs
+* Lightweight testing environments
+* Standalone endpoints
 
-### 4.1 Phase 1: Network Reconnaissance and Footprinting
-To simulate an early-stage threat actor scouting for attack surfaces, an aggressive local port discovery scan was directed against the loopback network topology.
+There is a need for a compact and efficient SIEM deployment capable of:
 
-#### 4.1.1 Execution Command
+* Collecting local system logs
+* Detecting suspicious activity
+* Generating alerts
+* Visualizing incidents in real time
 
-# Target loopback interface to map open structural services
-nmap localhost
+## 2.2 Project Objectives
 
-> 📁 **Deliverable Asset Reference:** `assets/nmap_scan.png`
+The primary objectives of this project are:
 
-* **Infrastructural Impact:** The engine systematically evaluated common TCP ports to determine socket availability. This network reconnaissance activity was simulated and successfully logged, leaving clear telemetry trails of local connection requests within the kernel audit logs.
+* Deploy a standalone Wazuh SIEM environment on Kali Linux
+* Configure local authentication log monitoring
+* Simulate reconnaissance and brute-force attack scenarios
+* Validate real-time alert generation and event correlation
+* Visualize detected threats through the Wazuh Dashboard
 
 ---
 
-### 4.2 Phase 2: Online Brute-Force Exploitation
-Following target profiling, an active, high-velocity brute-force authentication campaign was launched targeting the root administrative profile across the OpenSSH daemon path.
+# 3. System Architecture & Technical Stack
 
-#### 4.2.1 Execution Command
+The project follows a monolithic deployment model in which both the attack simulation and SIEM monitoring environment operate on the same host machine.
+
+## 3.1 Architectural Data Flow Diagram
+
+```text
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           KALI LINUX HOST LAYER                           │
+│                                                                           │
+│  ┌───────────────────────┐        ┌────────────────────────────┐          │
+│  │   OFFENSIVE VECTORS   │        │      DEFENSIVE TARGET      │          │
+│  │                       │        │                            │          │
+│  │ [1] Nmap Port Scan    ├───────►│ Local Network Sockets      │          │
+│  │ [2] Hydra SSH Attack  │        │ & OpenSSH (Port 22)        │          │
+│  └───────────────────────┘        └─────────────┬──────────────┘          │
+│                                                 │                         │
+│                                                 ▼ (Mutates)               │
+│                                         /var/log/auth.log                 │
+│                                                 │                         │
+│  ┌──────────────────────────────────────┼───────────────────────────────┐ │
+│  │              WAZUH CORE ENGINE LAYER ▼                               │ │
+│  │                                                                      │ │
+│  │                           ┌────────────────┐                         │ │
+│  │                           │ Log Ingestion  │                         │ │
+│  │                           │ (wazuh-modulesd)                         │ │
+│  │                           └───────┬────────┘                         │ │
+│  │                                   │                                  │ │
+│  │                                   ▼ (Raw Stream)                     │ │
+│  │      ┌───────────────────┐   ┌────────────────┐                      │ │
+│  │      │ Wazuh Dashboard   │◄──┤ wazuh-analysisd│                      │ │
+│  │      │ (Visualization UI)│   │ (Rules Engine) │                      │ │
+│  │      └─────────▲─────────┘   └────────────────┘                      │ │
+│  └────────────────┼─────────────────────────────────────────────────────┘ │
+│                   │ (Queries via HTTPS)                                   │
+│          ┌────────┴─────────────┐                                         │
+│          │ Firefox Web Browser  │                                         │
+│          └──────────────────────┘                                         │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3.2 Component Breakdown
+
+| Component                  | Technology              | Functional Description                                |
+| -------------------------- | ----------------------- | ----------------------------------------------------- |
+| **Host Operating System**  | Kali Linux (x86_64)     | VirtualBox-based isolated Linux environment           |
+| **SIEM Engine**            | `wazuh-manager`         | Handles log collection, decoding, and rule evaluation |
+| **Analytics Dashboard**    | Wazuh Dashboard         | Visualizes alerts, timelines, and security metrics    |
+| **Target Service**         | OpenSSH (`ssh.service`) | SSH daemon monitored for authentication attempts      |
+| **Reconnaissance Tool**    | Nmap v7.x               | Performs local network and port scanning              |
+| **Attack Simulation Tool** | THC-Hydra v9.6          | Executes automated SSH brute-force attacks            |
+
+---
+
+# 4. Experimental Methodology & Attack Simulation
+
+The experiment was divided into two stages:
+
+1. Reconnaissance and service discovery
+2. Brute-force exploitation simulation
+
+---
+
+## 4.1 Phase 1: Network Reconnaissance
+
+To simulate an attacker identifying available services, an Nmap scan was performed against the local host.
+
+### 4.1.1 Execution Command
+
 ```bash
-# Trigger highly parallelized SSH login crack loop against localhost
+# Scan localhost for open ports
+nmap localhost
+```
+
+> 📁 Deliverable Asset Reference: `assets/nmap_scan.png`
+
+### Impact
+
+The scan identified active services and generated network connection activity visible in system logs.
+
+---
+
+## 4.2 Phase 2: SSH Brute-Force Simulation
+
+After identifying the SSH service, a brute-force attack simulation was launched using THC-Hydra.
+
+### 4.2.1 Execution Command
+
+```bash
+# SSH brute-force attack against localhost
 hydra -l root -P /usr/share/john/password.lst ssh://127.0.0.1
+```
 
-> 📁 **Deliverable Asset Reference:** `assets/siem_dashboard.png` & `assets/siem_threat_alert.png`
+> 📁 Deliverable Asset References:
 
-* **Infrastructural Impact:** Hydra established maximum parallel child tasks to push hundreds of credential pairs from the system wordlist against the local host. This structural volume overwhelmed the SSH standard authentication limits, leading to connection drops. However, it successfully triggered **3,559 distinct authentication errors** inside the Linux auditing layer within a tight 35-second window.
+* `assets/siem_dashboard.png`
+* `assets/siem_threat_alert.png`
+
+### Impact
+
+Hydra generated thousands of failed authentication attempts within a short time interval. These events were captured by the Linux logging subsystem and processed by Wazuh.
+
+The attack generated:
+
+* Multiple failed SSH login events
+* High-frequency authentication anomalies
+* Alert escalation inside the SIEM dashboard
 
 ---
 
-## 5. SIEM Detection and Analysis Logic
-When the offensive vector generated raw log noise inside `/var/log/auth.log`, the defensive layer processed the telemetry stream through distinct structural parsing phases.
+# 5. SIEM Detection & Analysis Workflow
 
-### 5.1 Step-by-Step Log Processing Flow
+When attack activity modified `/var/log/auth.log`, the Wazuh engine processed the events through multiple analysis stages.
 
+## 5.1 Log Processing Pipeline
+
+```text
 [ Raw Log Entry Generation ]
-             │
-             ▼
-[ Decoder Regex Processing ]  ──► Identifies application string (e.g., "sshd")
-             │
-             ▼
-[ Parameter Extraction ]     ──► Isolates Source IP, Username, Target Port
-             │
-             ▼
-[ Rule Engine Evaluation ]    ──► Matches extracted criteria against ruleset
-             │
-             ▼
-[ Alert Indexing & Display ]  ──► Populates Dashboards (Rule IDs 5710 / 5712)
-
-### Ingestion & Processing Pipeline
-
-* **Ingestion Loop:** The `wazuh-modulesd` service constantly polls the active local log files, tracking line additions as raw, unformatted text strings.
-* **Decoder Normalization:** The log engine matches the raw text against standard SSH decoders. It extracts variables like source address (`127.0.0.1`), targeted system account name (`root`), and connection type.
-* **Rule Comparison & Escalation:** The extracted key-value data is run through the Wazuh rules logic tree to flag anomalous events:
-  * **Rule ID 5710:** Triggers upon catching a single standalone instance of an invalid username/password authentication attempt.
-  * **Rule ID 5712:** Triggers when a high-frequency threshold of sequential rule 5710 matches occurs within a brief window, identifying an active, automated multi-threaded brute-force intrusion vector.
+              │
+              ▼
+[ Decoder Processing ]
+              │
+              ├──► Identifies service (e.g., sshd)
+              ▼
+[ Parameter Extraction ]
+              │
+              ├──► Extracts IP, username, and port
+              ▼
+[ Rule Evaluation ]
+              │
+              ├──► Matches security rules
+              ▼
+[ Alert Generation ]
+              │
+              └──► Displays alerts on dashboard
+```
 
 ---
 
-## 6. Project Results and Dashboard Metrics
+## 5.2 Detection Logic
 
-The validation of the project was confirmed through the live analytics dashboard. Upon opening the **Threat Hunting** and **Security Events** visualization engines, the metrics confirmed total structural capture of the simulation events.
+### Log Collection
 
-### Telemetry Volumetrics
-As referenced via `assets/siem_dashboard_live.png`, the system monitored hundreds of separate log variations, tracking the following metrics inside the localized host environment:
+The `wazuh-modulesd` component continuously monitors authentication logs and forwards new entries to the analysis engine.
 
-| Alert Severity | Total Count |
-| :--- | :--- |
-| **Medium Severity Alerts** | 190+ |
-| **Low Severity Alerts** | 424 |
+### Decoder Processing
 
-### The Hydra Spike
-In the Threat Hunting Dashboard layout (`assets/siem_dashboard.png`), the time-series line graph displayed a distinct vertical bar spike tracking right at the execution time of the Hydra command. This provides clear visual confirmation of anomalous behavior over baseline operations.
+Wazuh decoders parse raw SSH log entries and extract:
 
-### Rule Dominance Analysis
-**Rule ID 5712** emerged as a dominant alert within the top metrics cards on the dashboard, showing that the system accurately distinguished routine configuration checks from a dedicated, automated attack attempt.
+* Source IP address
+* Username
+* Authentication result
+* Service information
+
+### Rule Matching
+
+The extracted information is evaluated against predefined Wazuh rules.
+
+#### Important Rule IDs
+
+| Rule ID  | Description                                                                       |
+| -------- | --------------------------------------------------------------------------------- |
+| **5710** | Detects failed SSH authentication attempts                                        |
+| **5712** | Detects multiple repeated authentication failures indicating brute-force activity |
 
 ---
 
-## 7. Conclusion and Future Scope
+# 6. Results & Dashboard Analysis
 
-### 7.1 Key Learnings
-This project successfully demonstrates that an enterprise-grade SIEM solution can be condensed into a monolithic, localized deployment framework without sacrificing real-time threat detection accuracy. Through the integration of automated log parsing and rules-based signature comparison, the Wazuh environment successfully flagged both network scouting (Nmap) and high-velocity brute-force exploit attempts (Hydra). This provides definitive, auditable confirmation of complex incidents on a single interface.
+The Wazuh Dashboard successfully visualized attack telemetry in real time.
 
-### 7.2 Future Scope & System Enhancements
-To build on this foundation for production environments, the architecture can be extended through three primary engineering paths:
+## 6.1 Alert Metrics
 
-* **Multi-Node Endpoint Expansion:** Transition the current standalone model into a distributed environment by deploying lightweight, remote agents across separate Windows Server and Ubuntu endpoints to aggregate logs over secure TLS tunnels.
-* **Automated Active Response Escalation:** Configure the internal `<active-response>` engine within `ossec.conf` to automatically run system firewall drop blocks (`iptables`/`nftables`) against source IPs that trigger **Rule 5712**, isolating attackers instantly.
-* **Advanced Threat Intelligence Ingestion:** Integrate commercial cyber threat intelligence feeds (e.g., AlienVault OTX, MISP) to map incoming connection requests against known malicious IP address databases.
+| Alert Severity         | Approximate Count |
+| ---------------------- | ----------------- |
+| Medium Severity Alerts | 190+              |
+| Low Severity Alerts    | 424               |
+
+---
+
+## 6.2 Hydra Attack Spike
+
+The Threat Hunting dashboard displayed a noticeable spike during the Hydra execution window, confirming successful detection of abnormal authentication activity.
+
+---
+
+## 6.3 Rule Analysis
+
+Rule ID **5712** became one of the dominant alerts during the attack simulation, validating the effectiveness of Wazuh’s brute-force detection capability.
+
+---
+
+# 7. Conclusion & Future Scope
+
+## 7.1 Conclusion
+
+This project demonstrates that a standalone SIEM deployment can effectively provide:
+
+* Real-time threat monitoring
+* Log aggregation
+* Event correlation
+* Automated alert generation
+
+The Wazuh platform successfully detected both reconnaissance and brute-force attack activity within a localized Linux environment.
+
+---
+
+## 7.2 Future Enhancements
+
+Potential improvements for future work include:
+
+### Multi-Endpoint Monitoring
+
+Deploy Wazuh agents on additional Linux and Windows systems for centralized monitoring.
+
+### Automated Active Response
+
+Configure automated firewall blocking using:
+
+* `iptables`
+* `nftables`
+
+when brute-force rules are triggered.
+
+### Threat Intelligence Integration
+
+Integrate external threat intelligence feeds such as:
+
+* AlienVault OTX
+* MISP
+
+to identify known malicious IP addresses.
+
+---
+
+# 8. References
+
+1. Wazuh Documentation — https://documentation.wazuh.com/
+2. Kali Linux Documentation — https://www.kali.org/docs/
+3. Nmap Official Documentation — https://nmap.org/book/man.html
+4. THC-Hydra GitHub Repository — https://github.com/vanhauser-thc/thc-hydra
