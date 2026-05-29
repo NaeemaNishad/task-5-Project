@@ -1,5 +1,0 @@
-May 29 18:00:15 kali sshd[12345]: Invalid user admin from 127.0.0.1 port 43210 ssh2
-May 29 18:00:16 kali sshd[12347]: Connection closed by authenticating user root 127.0.0.1 port 43212 [preauth]
-May 29 18:00:16 kali sshd[12349]: Failed password for invalid user guest from 127.0.0.1 port 43214 ssh2
-May 29 18:00:17 kali sshd[12351]: Failed password for root from 127.0.0.1 port 43216 ssh2
-May 29 18:00:17 kali sshd[12353]: Failed password for root from 127.0.0.1 port 43218 ssh2
