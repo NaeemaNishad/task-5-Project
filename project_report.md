@@ -37,7 +37,6 @@ The structural engineering of this project leverages a monolithic, unified deplo
 
 ### 3.1 Architectural Data Flow Diagram
 
-```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            KALI LINUX HOST LAYER                            │
 │                                                                             │
@@ -88,7 +87,7 @@ The evaluation of the security engineering stack was broken down into two distin
 To simulate an early-stage threat actor scouting for attack surfaces, an aggressive local port discovery scan was directed against the loopback network topology.
 
 #### 4.1.1 Execution Command
-```bash
+
 # Target loopback interface to map open structural services
 nmap localhost
 
@@ -117,7 +116,6 @@ When the offensive vector generated raw log noise inside `/var/log/auth.log`, th
 
 ### 5.1 Step-by-Step Log Processing Flow
 
-```text
 [ Raw Log Entry Generation ]
              │
              ▼
